@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no"
+    />
+    <title>Game Ular Ular INFORMATIKA klp 1</title>
+    <meta
+      name="description"
+      content="Game Ular Ular INFORMATIKA klp 1 - Permainan ular klasik khusus untuk HP dengan kontrol sentuh."
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Arial", sans-serif;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        color: white;
+        overflow: hidden;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        max-width: 90vw;
+        max-height: 90vh;
+      }
+
+      .score-display {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 15px 30px;
+        border-radius: 10px;
+        border: 2px solid #666;
+        font-size: 24px;
+        font-weight: bold;
+      }
+
+      .score-number {
+        color: #4ade80;
+      }
+
+      .game-title {
+        font-size: 48px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .game-board {
+        border: 2px solid #666;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .controls {
+        text-align: center;
+        font-size: 14px;
+        opacity: 0.8;
+      }
+
+      .mobile-controls {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .control-btn {
+        width: 80px;
+        height: 80px;
+        background: rgba(128, 128, 128, 0.9);
+        border: 3px solid #888;
+        border-radius: 15px;
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+        transition: background-color 0.1s;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .control-btn:active {
+        background: rgba(105, 105, 105, 1);
+      }
+
+      .control-row {
+        display: flex;
+        gap: 10px;
+      }
+
+      .game-button {
+        padding: 15px 30px;
+        font-size: 18px;
+        font-weight: bold;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .start-btn {
+        background: #16a34a;
+        color: white;
+      }
+
+      .start-btn:hover {
+        background: #15803d;
+      }
+
+      .restart-btn {
+        background: #2563eb;
+        color: white;
+      }
+
+      .restart-btn:hover {
+        background: #1d4ed8;
+      }
+
+      .game-over {
+        color: #ef4444;
+        font-size: 36px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .final-score {
+        font-size: 18px;
+        margin-bottom: 20px;
+      }
+
+      .playing-status {
+        color: #4ade80;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      @media (max-width: 768px) {
+        .mobile-controls {
+          display: flex;
+        }
+
+        .desktop-controls {
+          display: none;
+        }
+
+        .game-title {
+          font-size: 36px;
+        }
+
+        .score-display {
+          font-size: 20px;
+          padding: 10px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-container">
+      <div id="gameUI"></div>
+      <div id="gameBoard"></div>
+      <div class="controls">
+        <p class="mobile-controls-text" style="display: none">
+          Gunakan kontrol sentuh di bawah untuk bergerak
+        </p>
+        <p>Sentuh tombol untuk mulai/mengulang permainan</p>
+      </div>
+      <div class="mobile-controls" id="mobileControls">
+        <div class="control-btn" id="upBtn">↑</div>
+        <div class="control-row">
+          <div class="control-btn" id="leftBtn">←</div>
+          <div class="control-btn" id="downBtn">↓</div>
+          <div class="control-btn" id="rightBtn">→</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Game State
+      let gameState = {
+        snake: [{ x: 7, y: 7 }],
+        food: { x: 12, y: 12 },
+        direction: { x: 1, y: 0 },
+        score: 0,
+        gameOver: false,
+        phase: "ready", // ready, playing, ended
+        gridSize: 15, // Smaller grid for simplicity
+        cellSize: 25, // Bigger cells for mobile
+      };
+
+      // Canvas and UI elements
+      let canvas, ctx, gameUI, gameBoard;
+      let gameInterval;
+
+      // Audio elements
+      const sounds = {
+        hit: null,
+        success: null,
+      };
+
+      // Initialize the game
+      function initGame() {
+        // Create game board canvas
+        gameBoard = document.getElementById("gameBoard");
+        canvas = document.createElement("canvas");
+        const boardSize = gameState.gridSize * gameState.cellSize;
+        canvas.width = boardSize;
+        canvas.height = boardSize;
+        canvas.className = "game-board";
+        ctx = canvas.getContext("2d");
+        gameBoard.appendChild(canvas);
+
+        // Setup UI
+        gameUI = document.getElementById("gameUI");
+        updateUI();
+
+        // Setup mobile-only controls
+        setupControls();
+
+        // Always show mobile controls (mobile-only game)
+        document.querySelector(".mobile-controls").style.display = "flex";
+        document.querySelector(".mobile-controls-text").style.display = "block";
+
+        // Initialize audio (optional, works without)
+        try {
+          // Create simple beep sound function
+          sounds.hit = {
+            play: function () {
+              try {
+                const audioContext = new (window.AudioContext ||
+                  window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.setValueAtTime(
+                  800,
+                  audioContext.currentTime,
+                );
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(
+                  0.01,
+                  audioContext.currentTime + 0.1,
+                );
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+              } catch (e) {
+                // Silent fail
+              }
+            },
+          };
+        } catch (e) {
+          console.log("Audio not available");
+        }
+
+        draw();
+      }
+
+      function setupControls() {
+        // Mobile-only controls
+        document
+          .getElementById("upBtn")
+          .addEventListener("click", () => changeDirection({ x: 0, y: -1 }));
+        document
+          .getElementById("downBtn")
+          .addEventListener("click", () => changeDirection({ x: 0, y: 1 }));
+        document
+          .getElementById("leftBtn")
+          .addEventListener("click", () => changeDirection({ x: -1, y: 0 }));
+        document
+          .getElementById("rightBtn")
+          .addEventListener("click", () => changeDirection({ x: 1, y: 0 }));
+
+        // Touch events for mobile
+        document.getElementById("upBtn").addEventListener("touchstart", (e) => {
+          e.preventDefault();
+          changeDirection({ x: 0, y: -1 });
+        });
+        document
+          .getElementById("downBtn")
+          .addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            changeDirection({ x: 0, y: 1 });
+          });
+        document
+          .getElementById("leftBtn")
+          .addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            changeDirection({ x: -1, y: 0 });
+          });
+        document
+          .getElementById("rightBtn")
+          .addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            changeDirection({ x: 1, y: 0 });
+          });
+      }
+
+      function changeDirection(newDirection) {
+        // Prevent reversing into self
+        if (
+          gameState.direction.x !== 0 &&
+          newDirection.x === -gameState.direction.x
+        )
+          return;
+        if (
+          gameState.direction.y !== 0 &&
+          newDirection.y === -gameState.direction.y
+        )
+          return;
+
+        gameState.direction = newDirection;
+      }
+
+      function generateFood() {
+        let newFood;
+        do {
+          newFood = {
+            x: Math.floor(Math.random() * gameState.gridSize),
+            y: Math.floor(Math.random() * gameState.gridSize),
+          };
+        } while (
+          gameState.snake.some(
+            (segment) => segment.x === newFood.x && segment.y === newFood.y,
+          )
+        );
+
+        gameState.food = newFood;
+      }
+
+      function moveSnake() {
+        if (gameState.gameOver || gameState.phase !== "playing") return;
+
+        const newSnake = [...gameState.snake];
+        const head = { ...newSnake[0] };
+
+        // Move head
+        head.x += gameState.direction.x;
+        head.y += gameState.direction.y;
+
+        // Check wall collision
+        if (
+          head.x < 0 ||
+          head.x >= gameState.gridSize ||
+          head.y < 0 ||
+          head.y >= gameState.gridSize
+        ) {
+          gameState.gameOver = true;
+          gameState.phase = "ended";
+          updateUI();
+          clearInterval(gameInterval);
+          return;
+        }
+
+        // Check self collision
+        if (
+          newSnake.some(
+            (segment) => segment.x === head.x && segment.y === head.y,
+          )
+        ) {
+          gameState.gameOver = true;
+          gameState.phase = "ended";
+          updateUI();
+          clearInterval(gameInterval);
+          return;
+        }
+
+        newSnake.unshift(head);
+
+        // Check food collision
+        if (head.x === gameState.food.x && head.y === gameState.food.y) {
+          gameState.score++;
+          generateFood();
+
+          // Play sound
+          if (sounds.hit) {
+            sounds.hit.currentTime = 0;
+            sounds.hit.play().catch(() => {});
+          }
+        } else {
+          newSnake.pop();
+        }
+
+        gameState.snake = newSnake;
+        draw();
+        updateUI();
+      }
+
+      function draw() {
+        // Clear canvas
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw grid
+        ctx.strokeStyle = "#333333";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= gameState.gridSize; i++) {
+          ctx.beginPath();
+          ctx.moveTo(i * gameState.cellSize, 0);
+          ctx.lineTo(i * gameState.cellSize, canvas.height);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(0, i * gameState.cellSize);
+          ctx.lineTo(canvas.width, i * gameState.cellSize);
+          ctx.stroke();
+        }
+
+        // Draw snake
+        gameState.snake.forEach((segment, index) => {
+          const x = segment.x * gameState.cellSize;
+          const y = segment.y * gameState.cellSize;
+
+          if (index === 0) {
+            ctx.fillStyle = "#4ADE80"; // Head - bright green
+          } else {
+            ctx.fillStyle = "#22C55E"; // Body - darker green
+          }
+
+          ctx.fillRect(
+            x + 1,
+            y + 1,
+            gameState.cellSize - 2,
+            gameState.cellSize - 2,
+          );
+
+          // Add eyes to head
+          if (index === 0) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(x + 4, y + 4, 3, 3);
+            ctx.fillRect(x + 13, y + 4, 3, 3);
+          }
+        });
+
+        // Draw food
+        const foodX = gameState.food.x * gameState.cellSize;
+        const foodY = gameState.food.y * gameState.cellSize;
+        ctx.fillStyle = "#EF4444";
+        ctx.fillRect(
+          foodX + 1,
+          foodY + 1,
+          gameState.cellSize - 2,
+          gameState.cellSize - 2,
+        );
+
+        // Add shine to food
+        ctx.fillStyle = "#FECACA";
+        ctx.fillRect(foodX + 3, foodY + 3, 4, 4);
+      }
+
+      function updateUI() {
+        let html = "";
+
+        // Score display
+        html += `<div class="score-display">Skor: <span class="score-number">${gameState.score}</span></div>`;
+
+        // Game state messages
+        if (gameState.phase === "ready") {
+          html += `
+            <div style="text-align: center;">
+              <h1 class="game-title">Game Ular Ular INFORMATIKA klp 1</h1>
+              <button class="game-button start-btn" onclick="startRestartGame()">Mulai Permainan</button>
+            </div>
+          `;
+        } else if (gameState.phase === "ended") {
+          html += `
+            <div style="text-align: center;">
+              <h2 class="game-over">Permainan Selesai!</h2>
+              <p class="final-score">Skor Akhir: ${gameState.score}</p>
+              <button class="game-button restart-btn" onclick="startRestartGame()">Main Lagi</button>
+            </div>
+          `;
+        } else if (gameState.phase === "playing") {
+          html += `<div style="text-align: center;"><p class="playing-status">Sedang Bermain...</p></div>`;
+        }
+
+        gameUI.innerHTML = html;
+      }
+
+      function startRestartGame() {
+        if (gameState.phase === "ready") {
+          gameState.phase = "playing";
+          gameInterval = setInterval(moveSnake, 200); // Slower for easier play
+        } else if (gameState.phase === "ended") {
+          // Reset game
+          gameState.snake = [{ x: 7, y: 7 }];
+          gameState.direction = { x: 1, y: 0 };
+          gameState.score = 0;
+          gameState.gameOver = false;
+          gameState.phase = "ready";
+          generateFood();
+          draw();
+        }
+        updateUI();
+      }
+
+      // Initialize the game when page loads
+      window.addEventListener("load", initGame);
+    </script>
+  </body>
+</html>
